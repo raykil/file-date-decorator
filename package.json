@@ -1,0 +1,169 @@
+{
+  "name": "file-date-decorator",
+  "displayName": "File Date Decorator",
+  "description": "Displays file dates (creation, modified, accessed) next to filenames in the Explorer sidebar",
+  "version": "1.0.0",
+  "publisher": "raymond",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "File Date Decorator",
+      "properties": {
+        "fileDateDecorator.dateFormat": {
+          "type": "string",
+          "default": "MM/DD/YYYY",
+          "markdownDescription": "Date/time format string. Tokens: `YYYY` (4-digit year), `YY` (2-digit year), `MM` (month), `DD` (day), `hh` (hours 24h), `HH` (hours 12h), `mm` (minutes), `ss` (seconds), `A` (AM/PM). Examples: `MM/DD/YYYY`, `DD/MM/YY`, `DD/MM hh:mm:ss`, `YYYY-MM-DD hh:mm`"
+        },
+        "fileDateDecorator.dateSource": {
+          "type": "string",
+          "default": "modified",
+          "enum": [
+            "modified",
+            "created",
+            "accessed"
+          ],
+          "enumDescriptions": [
+            "Last modified time (mtime) — what `ls -l` shows by default",
+            "Creation / birth time (birthtime)",
+            "Last accessed time (atime)"
+          ],
+          "description": "Which file timestamp to display."
+        },
+        "fileDateDecorator.fontStyle": {
+          "type": "string",
+          "default": "normal",
+          "enum": [
+            "normal",
+            "italic"
+          ],
+          "description": "Font style of the date label."
+        },
+        "fileDateDecorator.fontWeight": {
+          "type": "string",
+          "default": "normal",
+          "enum": [
+            "normal",
+            "bold",
+            "light"
+          ],
+          "description": "Font weight of the date label."
+        },
+        "fileDateDecorator.color": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Color of the date text. Leave empty to use the theme's default decoration color. Accepts any CSS color value (e.g. `#888888`, `rgba(255,255,255,0.5)`) or a [theme color id](https://code.visualstudio.com/api/references/theme-color) like `descriptionForeground`."
+        },
+        "fileDateDecorator.opacity": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Opacity of the date label (0 = invisible, 1 = fully opaque)."
+        },
+        "fileDateDecorator.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable the file date decorator."
+        },
+        "fileDateDecorator.showOnFolders": {
+          "type": "boolean",
+          "default": false,
+          "description": "Also show dates on folders (not just files)."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "fileDateExplorerContainer",
+          "title": "File Dates",
+          "icon": "$(calendar)"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "fileDateExplorer",
+          "name": "File Dates",
+          "contextualTitle": "File Dates",
+          "icon": "$(calendar)",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "fileDateDecorator.refresh",
+          "when": "view == fileDateExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "fileDateDecorator.cycleDateSource.modified",
+          "when": "view == fileDateExplorer && fileDateDecorator.dateSource == modified",
+          "group": "navigation"
+        },
+        {
+          "command": "fileDateDecorator.cycleDateSource.created",
+          "when": "view == fileDateExplorer && fileDateDecorator.dateSource == created",
+          "group": "navigation"
+        },
+        {
+          "command": "fileDateDecorator.cycleDateSource.accessed",
+          "when": "view == fileDateExplorer && fileDateDecorator.dateSource == accessed",
+          "group": "navigation"
+        },
+        {
+          "command": "fileDateDecorator.toggle",
+          "when": "view == fileDateExplorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "fileDateDecorator.toggle",
+        "title": "File Date Decorator: Toggle On/Off"
+      },
+      {
+        "command": "fileDateDecorator.cycleDateSource.modified",
+        "title": "File Date Decorator: modified",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "fileDateDecorator.cycleDateSource.created",
+        "title": "File Date Decorator: created",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "fileDateDecorator.cycleDateSource.accessed",
+        "title": "File Date Decorator: accessed",
+        "icon": "$(calendar)"
+      },
+      {
+        "command": "fileDateDecorator.refresh",
+        "title": "File Date Decorator: Refresh Dates",
+        "icon": "$(refresh)"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^5.0.0"
+  }
+}
