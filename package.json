@@ -127,6 +127,11 @@
     },
     "keybindings": [
       {
+        "command": "fileDateDecorator.rename",
+        "key": "enter",
+        "when": "focusedView == fileDateExplorer && viewItem != placeholder"
+      },
+      {
         "command": "fileDateDecorator.delete",
         "key": "cmd+backspace",
         "mac": "cmd+backspace",

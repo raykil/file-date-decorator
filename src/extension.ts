@@ -311,7 +311,7 @@ class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
 const TREE_MIME = 'application/vnd.code.tree.fileDateExplorer';
 
 class FileDateDragAndDropController implements vscode.TreeDragAndDropController<FileItem> {
-  readonly dragMimeTypes = [TREE_MIME];
+  readonly dragMimeTypes = [TREE_MIME, 'text/uri-list'];
   readonly dropMimeTypes = [TREE_MIME];
 
   private treeProvider: FileDateTreeProvider;
@@ -321,7 +321,10 @@ class FileDateDragAndDropController implements vscode.TreeDragAndDropController<
   }
 
   handleDrag(source: FileItem[], dataTransfer: vscode.DataTransfer): void {
-    dataTransfer.set(TREE_MIME, new vscode.DataTransferItem(source.filter(i => !i.isPlaceholder)));
+    const files = source.filter(i => !i.isPlaceholder);
+    dataTransfer.set(TREE_MIME, new vscode.DataTransferItem(files));
+    const uriList = files.map(i => i.uri.toString()).join('\r\n');
+    dataTransfer.set('text/uri-list', new vscode.DataTransferItem(uriList));
   }
 
   async handleDrop(target: FileItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
@@ -511,12 +514,14 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('fileDateDecorator.rename', async (item: FileItem) => {
-      const oldName = path.basename(item.uri.fsPath);
+    vscode.commands.registerCommand('fileDateDecorator.rename', async (item: FileItem | undefined) => {
+      const resolved = item ?? treeView.selection[0];
+      if (!resolved || resolved.isPlaceholder) { return; }
+      const oldName = path.basename(resolved.uri.fsPath);
       const newName = await vscode.window.showInputBox({ prompt: 'New name', value: oldName });
       if (!newName || newName === oldName) { return; }
-      const newUri = vscode.Uri.file(path.join(path.dirname(item.uri.fsPath), newName));
-      await vscode.workspace.fs.rename(item.uri, newUri);
+      const newUri = vscode.Uri.file(path.join(path.dirname(resolved.uri.fsPath), newName));
+      await vscode.workspace.fs.rename(resolved.uri, newUri);
     }),
     vscode.commands.registerCommand('fileDateDecorator.delete', async (item: FileItem | undefined, selected?: FileItem[]) => {
       // When triggered via keybinding, item is undefined — fall back to tree selection
