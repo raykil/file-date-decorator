@@ -31,10 +31,6 @@ function formatDate(date: Date, format: string): string {
 interface DecoratorConfig {
   dateFormat: string;
   dateSource: 'modified' | 'created' | 'accessed';
-  fontStyle: 'normal' | 'italic';
-  fontWeight: 'normal' | 'bold' | 'light';
-  color: string;
-  opacity: number;
   enabled: boolean;
   showOnFolders: boolean;
 }
@@ -44,10 +40,6 @@ function getConfig(): DecoratorConfig {
   return {
     dateFormat: cfg.get<string>('dateFormat', 'MM/DD/YYYY'),
     dateSource: cfg.get<'modified' | 'created' | 'accessed'>('dateSource', 'modified'),
-    fontStyle: cfg.get<'normal' | 'italic'>('fontStyle', 'normal'),
-    fontWeight: cfg.get<'normal' | 'bold' | 'light'>('fontWeight', 'normal'),
-    color: cfg.get<string>('color', ''),
-    opacity: cfg.get<number>('opacity', 0.7),
     enabled: cfg.get<boolean>('enabled', true),
     showOnFolders: cfg.get<boolean>('showOnFolders', false),
   };
@@ -143,11 +135,6 @@ class FileDateDecorationProvider implements vscode.FileDecorationProvider {
     };
 
     // Color theming
-    if (config.color) {
-      // Try to interpret as a theme color id
-      decoration.color = new vscode.ThemeColor(config.color);
-    }
-
     return decoration;
   }
 }
@@ -160,6 +147,7 @@ class FileDateDecorationProvider implements vscode.FileDecorationProvider {
 interface FileItem {
   uri: vscode.Uri;
   type: vscode.FileType;
+  isPlaceholder?: boolean;
 }
 
 class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
@@ -193,6 +181,13 @@ class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
   }
 
   getTreeItem(element: FileItem): vscode.TreeItem {
+    if (element.isPlaceholder) {
+      const item = new vscode.TreeItem('', vscode.TreeItemCollapsibleState.None);
+      item.id = element.uri.toString(); // unique per placeholder row
+      item.contextValue = 'placeholder';
+      return item;
+    }
+
     const config = getConfig();
     const isDir = element.type === vscode.FileType.Directory;
     const label = path.basename(element.uri.fsPath);
@@ -272,18 +267,33 @@ class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
       }
 
       const items: FileItem[] = entries
-        .filter(entry => !ignoredNames.has(entry.name))
-        .map(entry => ({
+        .filter((entry: import('fs').Dirent) => !ignoredNames.has(entry.name))
+        .map((entry: import('fs').Dirent) => ({
           uri: vscode.Uri.file(path.join(dirPath, entry.name)),
           type: entry.isDirectory() ? vscode.FileType.Directory : vscode.FileType.File,
         }))
-        .sort((a, b) => {
+        .sort((a: FileItem, b: FileItem) => {
           // Directories first, then alphabetical
           if (a.type !== b.type) {
             return a.type === vscode.FileType.Directory ? -1 : 1;
           }
           return path.basename(a.uri.fsPath).localeCompare(path.basename(b.uri.fsPath));
         });
+
+      // Fill remaining space with invisible placeholder rows so right-clicking
+      // anywhere in the blank area of the view triggers the context menu.
+      // Each placeholder needs a unique URI (via fragment) so VS Code doesn't
+      // deduplicate them.
+      if (!element) {
+        const root = this.workspaceRoot ?? '';
+        for (let i = 0; i < 20; i++) {
+          items.push({
+            uri: vscode.Uri.file(root).with({ fragment: `placeholder-${i}` }),
+            type: vscode.FileType.Unknown,
+            isPlaceholder: true,
+          });
+        }
+      }
 
       return items;
     } catch {
@@ -296,12 +306,72 @@ class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
   }
 }
 
+// ─── Drag and Drop Controller ─────────────────────────────────────
+
+const TREE_MIME = 'application/vnd.code.tree.fileDateExplorer';
+
+class FileDateDragAndDropController implements vscode.TreeDragAndDropController<FileItem> {
+  readonly dragMimeTypes = [TREE_MIME];
+  readonly dropMimeTypes = [TREE_MIME];
+
+  private treeProvider: FileDateTreeProvider;
+
+  constructor(treeProvider: FileDateTreeProvider) {
+    this.treeProvider = treeProvider;
+  }
+
+  handleDrag(source: FileItem[], dataTransfer: vscode.DataTransfer): void {
+    dataTransfer.set(TREE_MIME, new vscode.DataTransferItem(source.filter(i => !i.isPlaceholder)));
+  }
+
+  async handleDrop(target: FileItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
+    const transferItem = dataTransfer.get(TREE_MIME);
+    if (!transferItem) { return; }
+
+    const sources: FileItem[] = transferItem.value;
+    if (!sources.length) { return; }
+
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+    let targetDir: string;
+    if (!target || target.isPlaceholder) {
+      targetDir = root;
+    } else if (target.type === vscode.FileType.Directory) {
+      targetDir = target.uri.fsPath;
+    } else {
+      targetDir = path.dirname(target.uri.fsPath);
+    }
+
+    const moves = sources
+      .map(source => ({ source, destUri: vscode.Uri.file(path.join(targetDir, path.basename(source.uri.fsPath))) }))
+      .filter(({ source, destUri }) =>
+        source.uri.fsPath !== destUri.fsPath &&
+        !targetDir.startsWith(source.uri.fsPath + path.sep)
+      );
+
+    if (!moves.length) { return; }
+
+    const names = moves.map(({ source }) => path.basename(source.uri.fsPath)).join(', ');
+    const destName = path.basename(targetDir) || targetDir;
+    const answer = await vscode.window.showWarningMessage(
+      `Move ${names} to "${destName}"?`, { modal: true }, 'Move'
+    );
+    if (answer !== 'Move') { return; }
+
+    for (const { source, destUri } of moves) {
+      await vscode.workspace.fs.rename(source.uri, destUri, { overwrite: false });
+    }
+
+    this.treeProvider.refresh();
+  }
+}
+
 // ─── Extension Activation ──────────────────────────────────────────
 
 export function activate(context: vscode.ExtensionContext) {
-  // Initialize context key for cycle button visibility
+  // Initialize context keys
   const initialSource = getConfig().dateSource;
   vscode.commands.executeCommand('setContext', 'fileDateDecorator.dateSource', initialSource);
+  vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', getConfig().showOnFolders);
 
   // 1. Register the FileDecorationProvider (provides tooltips in native Explorer)
   const decorationProvider = new FileDateDecorationProvider();
@@ -314,10 +384,24 @@ export function activate(context: vscode.ExtensionContext) {
   const treeView = vscode.window.createTreeView('fileDateExplorer', {
     treeDataProvider: treeProvider,
     showCollapseAll: true,
+    canSelectMany: true,
+    dragAndDropController: new FileDateDragAndDropController(treeProvider),
   });
   context.subscriptions.push(treeView);
 
   // 3. Commands
+  const toggleFolders = async () => {
+    const cfg = vscode.workspace.getConfiguration('fileDateDecorator');
+    const next = !cfg.get<boolean>('showOnFolders', false);
+    await cfg.update('showOnFolders', next, vscode.ConfigurationTarget.Global);
+    vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', next);
+  };
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.toggleFolders.on',  toggleFolders),
+    vscode.commands.registerCommand('fileDateDecorator.toggleFolders.off', toggleFolders),
+  );
+
   context.subscriptions.push(
     vscode.commands.registerCommand('fileDateDecorator.toggle', async () => {
       const cfg = vscode.workspace.getConfiguration('fileDateDecorator');
@@ -354,7 +438,133 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // 4. React to configuration changes
+  // 4. Context menu commands
+  const revealInOS = (item: FileItem) =>
+    vscode.commands.executeCommand('revealFileInOS', item.uri);
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.revealInFinder',   revealInOS),
+    vscode.commands.registerCommand('fileDateDecorator.revealInExplorer', revealInOS),
+    vscode.commands.registerCommand('fileDateDecorator.revealInOS',       revealInOS),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.openInTerminal', (item: FileItem) => {
+      const cwd = item.type === vscode.FileType.Directory
+        ? item.uri.fsPath
+        : path.dirname(item.uri.fsPath);
+      const terminal = vscode.window.createTerminal({ cwd });
+      terminal.show();
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.copyPath', (item: FileItem | undefined, selected?: FileItem[]) => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+      // Placeholder or no item: copy selected items' paths, or workspace root
+      if (!item || item.isPlaceholder) {
+        const sel = treeView.selection.filter(s => !s.isPlaceholder);
+        vscode.env.clipboard.writeText(sel.length ? sel.map(s => s.uri.fsPath).join('\n') : root);
+        return;
+      }
+      const targets = selected && selected.length > 1 ? selected : [item];
+      vscode.env.clipboard.writeText(targets.map(t => t.uri.fsPath).join('\n'));
+    }),
+    vscode.commands.registerCommand('fileDateDecorator.copyRelativePath', (item: FileItem | undefined, selected?: FileItem[]) => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+      // Placeholder or no item: copy selected items' relative paths, or '.'
+      if (!item || item.isPlaceholder) {
+        const sel = treeView.selection.filter(s => !s.isPlaceholder);
+        vscode.env.clipboard.writeText(sel.length ? sel.map(s => path.relative(root, s.uri.fsPath)).join('\n') : '.');
+        return;
+      }
+      const targets = selected && selected.length > 1 ? selected : [item];
+      vscode.env.clipboard.writeText(targets.map(t => path.relative(root, t.uri.fsPath)).join('\n'));
+    }),
+  );
+
+  const resolveTargetDir = (item: FileItem | undefined): string => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+    if (!item || item.isPlaceholder) { return root; }
+    return item.type === vscode.FileType.Directory
+      ? item.uri.fsPath
+      : path.dirname(item.uri.fsPath);
+  };
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.newFile', async (item?: FileItem) => {
+      const dir = resolveTargetDir(item);
+      const name = await vscode.window.showInputBox({ prompt: 'File name', placeHolder: 'filename.txt' });
+      if (!name) { return; }
+      const newUri = vscode.Uri.file(path.join(dir, name));
+      await vscode.workspace.fs.writeFile(newUri, new Uint8Array());
+      treeProvider.refresh();
+      await vscode.window.showTextDocument(newUri);
+    }),
+    vscode.commands.registerCommand('fileDateDecorator.newFolder', async (item?: FileItem) => {
+      const dir = resolveTargetDir(item);
+      const name = await vscode.window.showInputBox({ prompt: 'Folder name' });
+      if (!name) { return; }
+      await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.join(dir, name)));
+      treeProvider.refresh();
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.rename', async (item: FileItem) => {
+      const oldName = path.basename(item.uri.fsPath);
+      const newName = await vscode.window.showInputBox({ prompt: 'New name', value: oldName });
+      if (!newName || newName === oldName) { return; }
+      const newUri = vscode.Uri.file(path.join(path.dirname(item.uri.fsPath), newName));
+      await vscode.workspace.fs.rename(item.uri, newUri);
+    }),
+    vscode.commands.registerCommand('fileDateDecorator.delete', async (item: FileItem | undefined, selected?: FileItem[]) => {
+      // When triggered via keybinding, item is undefined — fall back to tree selection
+      const resolvedItem = item ?? treeView.selection[0];
+      if (!resolvedItem) { return; }
+      const targets = selected && selected.length > 1 ? selected : (treeView.selection.length > 1 ? [...treeView.selection] : [resolvedItem]);
+      const names = targets.map(t => path.basename(t.uri.fsPath)).join(', ');
+      const answer = await vscode.window.showWarningMessage(
+        `Delete ${names}?`, { modal: true }, 'Delete'
+      );
+      if (answer !== 'Delete') { return; }
+      for (const target of targets) {
+        try {
+          await vscode.workspace.fs.delete(target.uri, { recursive: true, useTrash: true });
+        } catch {
+          await vscode.workspace.fs.delete(target.uri, { recursive: true, useTrash: false });
+        }
+      }
+    }),
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.findInFolder', (item: FileItem) => {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '';
+      const relative = path.relative(root, item.uri.fsPath);
+      vscode.commands.executeCommand('workbench.action.findInFiles', {
+        filesToInclude: relative + '/**',
+      });
+    }),
+  );
+
+  // Compare commands
+  let compareUri: vscode.Uri | undefined;
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.selectForCompare', (item: FileItem) => {
+      compareUri = item.uri;
+      vscode.commands.executeCommand('setContext', 'fileDateDecorator.compareFile', item.uri.fsPath);
+      vscode.window.setStatusBarMessage(`Selected '${path.basename(item.uri.fsPath)}' for compare`, 3000);
+    }),
+    vscode.commands.registerCommand('fileDateDecorator.compareWithSelected', (item: FileItem) => {
+      if (!compareUri) { return; }
+      const title = `${path.basename(compareUri.fsPath)} ↔ ${path.basename(item.uri.fsPath)}`;
+      vscode.commands.executeCommand('vscode.diff', compareUri, item.uri, title);
+    }),
+  );
+
+  // 5. React to configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(e => {
       if (e.affectsConfiguration('fileDateDecorator')) {
@@ -362,6 +572,9 @@ export function activate(context: vscode.ExtensionContext) {
         treeProvider.refresh();
         if (e.affectsConfiguration('fileDateDecorator.dateSource')) {
           vscode.commands.executeCommand('setContext', 'fileDateDecorator.dateSource', getConfig().dateSource);
+        }
+        if (e.affectsConfiguration('fileDateDecorator.showOnFolders')) {
+          vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', getConfig().showOnFolders);
         }
       }
     })

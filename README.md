@@ -7,7 +7,6 @@ A VS Code extension that displays file dates (creation, modified, accessed) next
 - **Date display** — Shows dates as suffix text next to each filename in a dedicated "File Dates" panel within the Explorer sidebar.
 - **Configurable format** — Use tokens like `MM/DD/YYYY`, `DD/MM/YY`, `DD/MM hh:mm:ss`, `YYYY-MM-DD hh:mm`, etc.
 - **Multiple date sources** — Switch between last modified (default, matches `ls -l`), creation date, or last accessed time.
-- **Font & style control** — Change font style (normal/italic), weight (normal/bold/light), color, and opacity. Font size automatically matches the Explorer's font size.
 - **Tooltip details** — Hover over any file to see all three timestamps at once.
 - **Quick commands** — Toggle on/off, cycle date sources, or refresh via the Command Palette.
 
@@ -40,10 +39,6 @@ Open **Settings → Extensions → File Date Decorator** or search for `fileDate
 |---------|---------|-------------|
 | `dateFormat` | `MM/DD/YYYY` | Date/time format string |
 | `dateSource` | `modified` | `modified`, `created`, or `accessed` |
-| `fontStyle` | `normal` | `normal` or `italic` |
-| `fontWeight` | `normal` | `normal`, `bold`, or `light` |
-| `color` | *(theme default)* | CSS color or theme color ID |
-| `opacity` | `0.7` | 0–1 opacity for the date text |
 | `enabled` | `true` | Toggle the decorator |
 | `showOnFolders` | `false` | Show dates on folders too |
 
