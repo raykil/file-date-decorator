@@ -148,6 +148,18 @@
         "key": "cmd+alt+shift+c",
         "mac": "cmd+alt+shift+c",
         "when": "focusedView == fileDateExplorer"
+      },
+      {
+        "command": "fileDateDecorator.selectForCompare",
+        "key": "cmd+shift+1",
+        "mac": "cmd+shift+1",
+        "when": "focusedView == fileDateExplorer"
+      },
+      {
+        "command": "fileDateDecorator.compareWithSelected",
+        "key": "cmd+shift+2",
+        "mac": "cmd+shift+2",
+        "when": "focusedView == fileDateExplorer"
       }
     ],
     "commands": [

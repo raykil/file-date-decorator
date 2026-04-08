@@ -557,15 +557,19 @@ export function activate(context: vscode.ExtensionContext) {
   let compareUri: vscode.Uri | undefined;
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('fileDateDecorator.selectForCompare', (item: FileItem) => {
-      compareUri = item.uri;
-      vscode.commands.executeCommand('setContext', 'fileDateDecorator.compareFile', item.uri.fsPath);
-      vscode.window.setStatusBarMessage(`Selected '${path.basename(item.uri.fsPath)}' for compare`, 3000);
+    vscode.commands.registerCommand('fileDateDecorator.selectForCompare', (item: FileItem | undefined) => {
+      const resolved = item ?? treeView.selection[0];
+      if (!resolved || resolved.isPlaceholder) { return; }
+      compareUri = resolved.uri;
+      vscode.commands.executeCommand('setContext', 'fileDateDecorator.compareFile', resolved.uri.fsPath);
+      vscode.window.setStatusBarMessage(`Selected '${path.basename(resolved.uri.fsPath)}' for compare`, 3000);
     }),
-    vscode.commands.registerCommand('fileDateDecorator.compareWithSelected', (item: FileItem) => {
+    vscode.commands.registerCommand('fileDateDecorator.compareWithSelected', (item: FileItem | undefined) => {
       if (!compareUri) { return; }
-      const title = `${path.basename(compareUri.fsPath)} ↔ ${path.basename(item.uri.fsPath)}`;
-      vscode.commands.executeCommand('vscode.diff', compareUri, item.uri, title);
+      const resolved = item ?? treeView.selection[0];
+      if (!resolved || resolved.isPlaceholder) { return; }
+      const title = `${path.basename(compareUri.fsPath)} ↔ ${path.basename(resolved.uri.fsPath)}`;
+      vscode.commands.executeCommand('vscode.diff', compareUri, resolved.uri, title);
     }),
   );
 
