@@ -372,9 +372,10 @@ class FileDateDragAndDropController implements vscode.TreeDragAndDropController<
 
 export function activate(context: vscode.ExtensionContext) {
   // Initialize context keys
-  const initialSource = getConfig().dateSource;
-  vscode.commands.executeCommand('setContext', 'fileDateDecorator.dateSource', initialSource);
-  vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', getConfig().showOnFolders);
+  const initialConfig = getConfig();
+  vscode.commands.executeCommand('setContext', 'fileDateDecorator.dateSource', initialConfig.dateSource);
+  vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', initialConfig.showOnFolders);
+  vscode.commands.executeCommand('setContext', 'fileDateDecorator.enabled', initialConfig.enabled);
 
   // 1. Register the FileDecorationProvider (provides tooltips in native Explorer)
   const decorationProvider = new FileDateDecorationProvider();
@@ -405,15 +406,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('fileDateDecorator.toggleFolders.off', toggleFolders),
   );
 
+  const toggleEnabled = async () => {
+    const cfg = vscode.workspace.getConfiguration('fileDateDecorator');
+    const current = cfg.get<boolean>('enabled', true);
+    const next = !current;
+    await cfg.update('enabled', next, vscode.ConfigurationTarget.Global);
+    vscode.commands.executeCommand('setContext', 'fileDateDecorator.enabled', next);
+  };
+
   context.subscriptions.push(
-    vscode.commands.registerCommand('fileDateDecorator.toggle', async () => {
-      const cfg = vscode.workspace.getConfiguration('fileDateDecorator');
-      const current = cfg.get<boolean>('enabled', true);
-      await cfg.update('enabled', !current, vscode.ConfigurationTarget.Global);
-      vscode.window.showInformationMessage(
-        `File Date Decorator: ${!current ? 'Enabled' : 'Disabled'}`
-      );
-    })
+    vscode.commands.registerCommand('fileDateDecorator.toggle.on',  toggleEnabled),
+    vscode.commands.registerCommand('fileDateDecorator.toggle.off', toggleEnabled),
   );
 
   const cycleSource = async () => {
@@ -579,11 +582,15 @@ export function activate(context: vscode.ExtensionContext) {
       if (e.affectsConfiguration('fileDateDecorator')) {
         decorationProvider.refresh();
         treeProvider.refresh();
+        const cfg = getConfig();
         if (e.affectsConfiguration('fileDateDecorator.dateSource')) {
-          vscode.commands.executeCommand('setContext', 'fileDateDecorator.dateSource', getConfig().dateSource);
+          vscode.commands.executeCommand('setContext', 'fileDateDecorator.dateSource', cfg.dateSource);
         }
         if (e.affectsConfiguration('fileDateDecorator.showOnFolders')) {
-          vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', getConfig().showOnFolders);
+          vscode.commands.executeCommand('setContext', 'fileDateDecorator.showOnFolders', cfg.showOnFolders);
+        }
+        if (e.affectsConfiguration('fileDateDecorator.enabled')) {
+          vscode.commands.executeCommand('setContext', 'fileDateDecorator.enabled', cfg.enabled);
         }
       }
     })

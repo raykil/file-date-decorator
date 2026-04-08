@@ -120,8 +120,14 @@
           "group": "navigation"
         },
         {
-          "command": "fileDateDecorator.toggle",
-          "when": "view == fileDateExplorer"
+          "command": "fileDateDecorator.toggle.on",
+          "when": "view == fileDateExplorer && fileDateDecorator.enabled == true",
+          "group": "navigation"
+        },
+        {
+          "command": "fileDateDecorator.toggle.off",
+          "when": "view == fileDateExplorer && fileDateDecorator.enabled != true",
+          "group": "navigation"
         }
       ]
     },
@@ -164,8 +170,14 @@
     ],
     "commands": [
       {
-        "command": "fileDateDecorator.toggle",
-        "title": "File Date Decorator: Toggle On/Off"
+        "command": "fileDateDecorator.toggle.on",
+        "title": "File Date Decorator: Disable",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "fileDateDecorator.toggle.off",
+        "title": "File Date Decorator: Enable",
+        "icon": "$(eye-closed)"
       },
       {
         "command": "fileDateDecorator.cycleDateSource.modified",
