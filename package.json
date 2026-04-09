@@ -72,21 +72,91 @@
     },
     "menus": {
       "view/item/context": [
-        { "command": "fileDateDecorator.newFile",          "when": "view == fileDateExplorer",              "group": "1_new@1" },
-        { "command": "fileDateDecorator.newFolder",        "when": "view == fileDateExplorer",              "group": "1_new@2" },
-        { "command": "fileDateDecorator.revealInFinder",   "when": "isMac && view == fileDateExplorer && viewItem != placeholder",    "group": "2_workspace@1" },
-        { "command": "fileDateDecorator.revealInExplorer", "when": "isWindows && view == fileDateExplorer && viewItem != placeholder","group": "2_workspace@1" },
-        { "command": "fileDateDecorator.revealInOS",       "when": "isLinux && view == fileDateExplorer && viewItem != placeholder",  "group": "2_workspace@1" },
-        { "command": "fileDateDecorator.openInTerminal",   "when": "view == fileDateExplorer && viewItem != placeholder",             "group": "2_workspace@2" },
-        { "command": "fileDateDecorator.findInFolder",     "when": "view == fileDateExplorer && viewItem == folder",                  "group": "3_search@1" },
-        { "command": "fileDateDecorator.copyPath",         "when": "view == fileDateExplorer && viewItem != placeholder",             "group": "4_copy@1" },
-        { "command": "fileDateDecorator.copyRelativePath", "when": "view == fileDateExplorer && viewItem != placeholder",             "group": "4_copy@2" },
-        { "command": "fileDateDecorator.copyPath",         "when": "view == fileDateExplorer && viewItem == placeholder",             "group": "4_copy@1" },
-        { "command": "fileDateDecorator.copyRelativePath", "when": "view == fileDateExplorer && viewItem == placeholder",             "group": "4_copy@2" },
-        { "command": "fileDateDecorator.rename",              "when": "view == fileDateExplorer && viewItem != placeholder",                                                    "group": "5_edit@1" },
-        { "command": "fileDateDecorator.delete",              "when": "view == fileDateExplorer && viewItem != placeholder",                                                    "group": "5_edit@2" },
-        { "command": "fileDateDecorator.selectForCompare",    "when": "view == fileDateExplorer && viewItem == file",                                                           "group": "6_compare@1" },
-        { "command": "fileDateDecorator.compareWithSelected", "when": "view == fileDateExplorer && viewItem == file && fileDateDecorator.compareFile != ''",                    "group": "6_compare@2" }
+        {
+          "command": "fileDateDecorator.newFile",
+          "when": "view == fileDateExplorer",
+          "group": "1_new@1"
+        },
+        {
+          "command": "fileDateDecorator.newFolder",
+          "when": "view == fileDateExplorer",
+          "group": "1_new@2"
+        },
+        {
+          "command": "fileDateDecorator.revealInFinder",
+          "when": "isMac && view == fileDateExplorer && viewItem != placeholder",
+          "group": "2_workspace@1"
+        },
+        {
+          "command": "fileDateDecorator.revealInExplorer",
+          "when": "isWindows && view == fileDateExplorer && viewItem != placeholder",
+          "group": "2_workspace@1"
+        },
+        {
+          "command": "fileDateDecorator.revealInOS",
+          "when": "isLinux && view == fileDateExplorer && viewItem != placeholder",
+          "group": "2_workspace@1"
+        },
+        {
+          "command": "fileDateDecorator.openInTerminal",
+          "when": "view == fileDateExplorer && viewItem != placeholder",
+          "group": "2_workspace@2"
+        },
+        {
+          "command": "fileDateDecorator.findInFolder",
+          "when": "view == fileDateExplorer && viewItem == folder",
+          "group": "3_search@1"
+        },
+        {
+          "command": "fileDateDecorator.copyFile",
+          "when": "view == fileDateExplorer && viewItem != placeholder",
+          "group": "4_copy@0"
+        },
+        {
+          "command": "fileDateDecorator.pasteFile",
+          "when": "view == fileDateExplorer",
+          "group": "4_copy@0.5"
+        },
+        {
+          "command": "fileDateDecorator.copyPath",
+          "when": "view == fileDateExplorer && viewItem != placeholder",
+          "group": "4_copy@1"
+        },
+        {
+          "command": "fileDateDecorator.copyRelativePath",
+          "when": "view == fileDateExplorer && viewItem != placeholder",
+          "group": "4_copy@2"
+        },
+        {
+          "command": "fileDateDecorator.copyPath",
+          "when": "view == fileDateExplorer && viewItem == placeholder",
+          "group": "4_copy@1"
+        },
+        {
+          "command": "fileDateDecorator.copyRelativePath",
+          "when": "view == fileDateExplorer && viewItem == placeholder",
+          "group": "4_copy@2"
+        },
+        {
+          "command": "fileDateDecorator.rename",
+          "when": "view == fileDateExplorer && viewItem != placeholder",
+          "group": "5_edit@1"
+        },
+        {
+          "command": "fileDateDecorator.delete",
+          "when": "view == fileDateExplorer && viewItem != placeholder",
+          "group": "5_edit@2"
+        },
+        {
+          "command": "fileDateDecorator.selectForCompare",
+          "when": "view == fileDateExplorer && viewItem == file",
+          "group": "6_compare@1"
+        },
+        {
+          "command": "fileDateDecorator.compareWithSelected",
+          "when": "view == fileDateExplorer && viewItem == file && fileDateDecorator.compareFile != ''",
+          "group": "6_compare@2"
+        }
       ],
       "view/title": [
         {
@@ -144,6 +214,18 @@
         "when": "focusedView == fileDateExplorer && viewItem != placeholder"
       },
       {
+        "command": "fileDateDecorator.copyFile",
+        "key": "cmd+c",
+        "mac": "cmd+c",
+        "when": "focusedView == fileDateExplorer && viewItem != placeholder"
+      },
+      {
+        "command": "fileDateDecorator.pasteFile",
+        "key": "cmd+v",
+        "mac": "cmd+v",
+        "when": "focusedView == fileDateExplorer"
+      },
+      {
         "command": "fileDateDecorator.copyPath",
         "key": "cmd+alt+c",
         "mac": "cmd+alt+c",
@@ -199,21 +281,76 @@
         "title": "File Date Decorator: Refresh Dates",
         "icon": "$(refresh)"
       },
-      { "command": "fileDateDecorator.newFile",           "title": "New File..."                    },
-      { "command": "fileDateDecorator.newFolder",         "title": "New Folder..."                  },
-      { "command": "fileDateDecorator.revealInFinder",    "title": "Reveal in Finder"               },
-      { "command": "fileDateDecorator.revealInExplorer",  "title": "Reveal in File Explorer"        },
-      { "command": "fileDateDecorator.revealInOS",        "title": "Open Containing Folder"         },
-      { "command": "fileDateDecorator.openInTerminal",    "title": "Open in Integrated Terminal"    },
-      { "command": "fileDateDecorator.findInFolder",      "title": "Find in Folder..."              },
-      { "command": "fileDateDecorator.copyPath",          "title": "Copy Path"                      },
-      { "command": "fileDateDecorator.copyRelativePath",  "title": "Copy Relative Path"             },
-      { "command": "fileDateDecorator.rename",              "title": "Rename..."                      },
-      { "command": "fileDateDecorator.delete",            "title": "Delete"                         },
-      { "command": "fileDateDecorator.selectForCompare",    "title": "Select for Compare"             },
-      { "command": "fileDateDecorator.compareWithSelected", "title": "Compare with Selected"          },
-      { "command": "fileDateDecorator.toggleFolders.on",  "title": "Hide Dates on Folders", "icon": "$(folder-active)" },
-      { "command": "fileDateDecorator.toggleFolders.off", "title": "Show Dates on Folders", "icon": "$(folder)"        }
+      {
+        "command": "fileDateDecorator.newFile",
+        "title": "New File..."
+      },
+      {
+        "command": "fileDateDecorator.newFolder",
+        "title": "New Folder..."
+      },
+      {
+        "command": "fileDateDecorator.revealInFinder",
+        "title": "Reveal in Finder"
+      },
+      {
+        "command": "fileDateDecorator.revealInExplorer",
+        "title": "Reveal in File Explorer"
+      },
+      {
+        "command": "fileDateDecorator.revealInOS",
+        "title": "Open Containing Folder"
+      },
+      {
+        "command": "fileDateDecorator.openInTerminal",
+        "title": "Open in Integrated Terminal"
+      },
+      {
+        "command": "fileDateDecorator.findInFolder",
+        "title": "Find in Folder..."
+      },
+      {
+        "command": "fileDateDecorator.copyFile",
+        "title": "Copy"
+      },
+      {
+        "command": "fileDateDecorator.pasteFile",
+        "title": "Paste"
+      },
+      {
+        "command": "fileDateDecorator.copyPath",
+        "title": "Copy Path"
+      },
+      {
+        "command": "fileDateDecorator.copyRelativePath",
+        "title": "Copy Relative Path"
+      },
+      {
+        "command": "fileDateDecorator.rename",
+        "title": "Rename..."
+      },
+      {
+        "command": "fileDateDecorator.delete",
+        "title": "Delete"
+      },
+      {
+        "command": "fileDateDecorator.selectForCompare",
+        "title": "Select for Compare"
+      },
+      {
+        "command": "fileDateDecorator.compareWithSelected",
+        "title": "Compare with Selected"
+      },
+      {
+        "command": "fileDateDecorator.toggleFolders.on",
+        "title": "Hide Dates on Folders",
+        "icon": "$(folder-active)"
+      },
+      {
+        "command": "fileDateDecorator.toggleFolders.off",
+        "title": "Show Dates on Folders",
+        "icon": "$(folder)"
+      }
     ]
   },
   "scripts": {
@@ -225,5 +362,8 @@
     "@types/node": "^18.0.0",
     "@types/vscode": "^1.74.0",
     "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "minimatch": "^10.2.5"
   }
 }

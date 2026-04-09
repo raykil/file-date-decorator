@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import { minimatch } from 'minimatch';
 
 // ─── Date Formatting ───────────────────────────────────────────────
 
@@ -154,7 +155,7 @@ class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<FileItem | undefined | void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private workspaceRoot: string | undefined;
+  workspaceRoot: string | undefined;
   private fileWatcher: vscode.FileSystemWatcher | undefined;
 
   constructor() {
@@ -250,24 +251,21 @@ class FileDateTreeProvider implements vscode.TreeDataProvider<FileItem> {
     try {
       const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
 
-      // Read .gitignore patterns if present (basic filtering)
-      const gitignorePath = path.join(this.workspaceRoot || dirPath, '.gitignore');
-      let ignoredNames = new Set<string>(['.git', 'node_modules', '.DS_Store']);
-      try {
-        const gitignoreContent = await fs.promises.readFile(gitignorePath, 'utf8');
-        for (const line of gitignoreContent.split('\n')) {
-          const trimmed = line.trim();
-          if (trimmed && !trimmed.startsWith('#')) {
-            // Simple name-based ignore (not full glob support)
-            ignoredNames.add(trimmed.replace(/\/$/, ''));
-          }
-        }
-      } catch {
-        // No .gitignore, that's fine
-      }
+      const filesExclude: Record<string, boolean> = {
+        ...vscode.workspace.getConfiguration('files', vscode.Uri.file(dirPath)).get<Record<string, boolean>>('exclude', {}),
+      };
+      const excludedPatterns = Object.entries(filesExclude)
+        .filter(([, enabled]) => enabled)
+        .map(([pattern]) => pattern);
 
       const items: FileItem[] = entries
-        .filter((entry: import('fs').Dirent) => !ignoredNames.has(entry.name))
+        .filter((entry: import('fs').Dirent) => {
+          const entryPath = path.join(dirPath, entry.name);
+          return !excludedPatterns.some((pattern) =>
+            minimatch(entryPath, pattern, { dot: true }) ||
+            minimatch(entry.name, pattern.replace(/^\*\*\//, ''), { dot: true })
+          );
+        })
         .map((entry: import('fs').Dirent) => ({
           uri: vscode.Uri.file(path.join(dirPath, entry.name)),
           type: entry.isDirectory() ? vscode.FileType.Directory : vscode.FileType.File,
@@ -553,6 +551,41 @@ export function activate(context: vscode.ExtensionContext) {
       vscode.commands.executeCommand('workbench.action.findInFiles', {
         filesToInclude: relative + '/**',
       });
+    }),
+  );
+
+  // Copy / Paste file commands
+  let copiedItems: FileItem[] = [];
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('fileDateDecorator.copyFile', (item: FileItem | undefined, selected?: FileItem[]) => {
+      const resolvedItem = item ?? treeView.selection[0];
+      if (!resolvedItem || resolvedItem.isPlaceholder) { return; }
+      copiedItems = selected && selected.length > 1 ? selected : (treeView.selection.length > 1 ? [...treeView.selection] : [resolvedItem]);
+      vscode.window.setStatusBarMessage(`Copied: ${copiedItems.map(i => path.basename(i.uri.fsPath)).join(', ')}`, 3000);
+    }),
+    vscode.commands.registerCommand('fileDateDecorator.pasteFile', async (item: FileItem | undefined) => {
+      if (!copiedItems.length) { return; }
+      const resolvedItem = item ?? treeView.selection[0];
+      const destDir = resolvedItem && !resolvedItem.isPlaceholder
+        ? (resolvedItem.type === vscode.FileType.Directory ? resolvedItem.uri.fsPath : path.dirname(resolvedItem.uri.fsPath))
+        : (treeProvider.workspaceRoot ?? '');
+      if (!destDir) { return; }
+      for (const src of copiedItems) {
+        const baseName = path.basename(src.uri.fsPath);
+        let destPath = path.join(destDir, baseName);
+        // Avoid overwriting: append " copy", " copy 2", etc.
+        let suffix = 0;
+        const ext = path.extname(baseName);
+        const stem = path.basename(baseName, ext);
+        while (true) {
+          try { await vscode.workspace.fs.stat(vscode.Uri.file(destPath)); } catch { break; }
+          suffix++;
+          destPath = path.join(destDir, suffix === 1 ? `${stem} copy${ext}` : `${stem} copy ${suffix}${ext}`);
+        }
+        await vscode.workspace.fs.copy(src.uri, vscode.Uri.file(destPath));
+      }
+      treeProvider.refresh();
     }),
   );
 
